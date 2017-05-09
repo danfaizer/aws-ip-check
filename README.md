@@ -8,7 +8,7 @@ Make sure you have a working Go environment.
 
 To install `aws-ip-check` cli, simply run:
 ```
-$ go get github.com/danfaizer/cmd/aws-ip-check
+$ go get github.com/danfaizer/aws-ip-check/cmd/aws-ip-check
 ```
 ## Usage
 ```
