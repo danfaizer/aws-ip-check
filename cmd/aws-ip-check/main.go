@@ -72,6 +72,7 @@ func main() {
 	flag.Usage = usage
 	ipAddress := flag.String("ip", "", "IP address to check if belongs to AWS")
 	awsIPRangeFilePath := flag.String("path", "/tmp/aws-ip-ranges.json", "File path to store AWS ip-ranges.json")
+	extraInfo := flag.Bool("extra", false, "Print extra info of the IP if pertains to AWS")
 	flag.Parse()
 	if *ipAddress == "" {
 		usage()
@@ -96,6 +97,9 @@ func main() {
 	var ipRange AWSIPRange
 	json.Unmarshal(file, &ipRange)
 
+	contains := false
+	var extra string
+
 	for _, r := range ipRange.Prefixes {
 		_, cidrnet, err := net.ParseCIDR(r.IPPrefix)
 		if err != nil {
@@ -104,10 +108,21 @@ func main() {
 		}
 		ip := net.ParseIP(*ipAddress)
 		if cidrnet.Contains(ip) {
-			fmt.Printf("IP %s found in AWS ip range\n", *ipAddress)
-			os.Exit(0)
+			contains = true
+
+			if *extraInfo {
+				extra += fmt.Sprintf(",%v;%v;%v", cidrnet.String(), r.Region, r.Service)
+			} else {
+				break
+			}
 		}
 	}
-	fmt.Printf("IP %s not found in AWS ip range\n", *ipAddress)
+
+	if contains {
+		fmt.Printf("IP %s found in AWS ip range%s\n", *ipAddress, extra)
+		os.Exit(0)
+	}
+
+	fmt.Printf("IP %s not found in AWS ip ranges\n", *ipAddress)
 	os.Exit(1)
 }
