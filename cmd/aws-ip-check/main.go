@@ -111,7 +111,12 @@ func main() {
 			contains = true
 
 			if *extraInfo {
-				extra += fmt.Sprintf(",%v;%v;%v", cidrnet.String(), r.Region, r.Service)
+				e, err := json.Marshal(r)
+				if err != nil {
+					fmt.Printf("error encoding range %+v: %v\n", r, err)
+					os.Exit(2)
+				}
+				extra += fmt.Sprintf(",%s", e)
 			} else {
 				break
 			}
