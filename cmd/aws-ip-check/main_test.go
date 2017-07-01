@@ -20,10 +20,11 @@ const (
 	wrongIPv6   = "2001:cdba::3257:9652:XX:XX:XX:XX"
 	correctIPv4 = "192.168.1.1"
 	correctIPv6 = "2001:cdba::3257:9652"
+	awsHostname = "console.aws.amazon.com"
 )
 
 func getAWSIPAddress() (net.IP, error) {
-	addr, err := net.LookupIP("www.amazon.com")
+	addr, err := net.LookupIP(awsHostname)
 	if err != nil {
 		return net.IPv6loopback, errors.New("Unable to resolve www.amazon.com")
 	}
