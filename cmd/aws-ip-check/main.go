@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -40,6 +41,10 @@ func downloadFile(path string) (err error) {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return errors.New("Wrong URL provided or bad response from server")
+	}
+
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return err
@@ -69,6 +74,10 @@ func usage() {
 }
 
 func main() {
+	os.Exit(realMain())
+}
+
+func realMain() int {
 	flag.Usage = usage
 	ipAddress := flag.String("ip", "", "IP address to check if belongs to AWS")
 	awsIPRangeFilePath := flag.String("path", "/tmp/aws-ip-ranges.json", "File path to store AWS ip-ranges.json")
@@ -76,12 +85,12 @@ func main() {
 	flag.Parse()
 	if *ipAddress == "" {
 		usage()
-		os.Exit(2)
+		return 2
 	}
 
 	if valid := validIP(*ipAddress); valid == false {
 		fmt.Printf("invalid IP address provided: %s\n", *ipAddress)
-		os.Exit(2)
+		return 2
 	}
 
 	if _, err := os.Stat(*awsIPRangeFilePath); os.IsNotExist(err) {
@@ -91,7 +100,7 @@ func main() {
 	file, err := ioutil.ReadFile(*awsIPRangeFilePath)
 	if err != nil {
 		fmt.Printf("file error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	var ipRange AWSIPRange
@@ -104,7 +113,7 @@ func main() {
 		_, cidrnet, err := net.ParseCIDR(r.IPPrefix)
 		if err != nil {
 			fmt.Printf("error parsing CIDR %s: %v\n", r.IPPrefix, err)
-			os.Exit(2)
+			return 2
 		}
 		ip := net.ParseIP(*ipAddress)
 		if cidrnet.Contains(ip) {
@@ -114,7 +123,7 @@ func main() {
 				e, err := json.Marshal(r)
 				if err != nil {
 					fmt.Printf("error encoding range %+v: %v\n", r, err)
-					os.Exit(2)
+					return 2
 				}
 				extra += fmt.Sprintf(",%s", e)
 			} else {
@@ -125,9 +134,9 @@ func main() {
 
 	if contains {
 		fmt.Printf("IP %s found in AWS ip range%s\n", *ipAddress, extra)
-		os.Exit(0)
+		return 0
 	}
 
 	fmt.Printf("IP %s not found in AWS ip ranges\n", *ipAddress)
-	os.Exit(1)
+	return 1
 }
