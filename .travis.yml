@@ -6,5 +6,9 @@ go:
   - 1.7.4
   - 1.8.3
 
-install:
+go_import_path:
   - github.com/danfaizer/aws-ip-check/cmd/aws-ip-check
+
+script:
+  - go get ./...
+  - go test ./... -coverprofile fmt
