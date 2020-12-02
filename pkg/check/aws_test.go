@@ -67,7 +67,7 @@ func TestCheck(t *testing.T) {
 		},
 		{
 			name:      "NonExistingCacheFile",
-			options:   &Options{CacheFilePath: "/tmp/random-" + strconv.Itoa(seededRand.Int()) + ".json"},
+			options:   &Options{CacheFilePath: "./testdata/random-" + strconv.Itoa(seededRand.Int()) + ".json"},
 			ip:        "192.168.0.1",
 			found:     false,
 			wantError: false,
