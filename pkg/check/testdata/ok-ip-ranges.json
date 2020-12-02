@@ -1,0 +1,12 @@
+{
+  "syncToken": "1606439478",
+  "createDate": "2020-11-27-01-11-18",
+  "prefixes": [
+    {
+      "ip_prefix": "192.168.0.0/24",
+      "region": "my-region",
+      "service": "my-service",
+      "network_border_group": "my-network-border"
+    }
+  ]
+}

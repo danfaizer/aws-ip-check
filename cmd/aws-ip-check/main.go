@@ -1,142 +1,125 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
+	"strconv"
+
+	"github.com/danfaizer/aws-ip-check/pkg/check"
 )
-
-// Prefix defines an AWS IP range
-type Prefix struct {
-	IPPrefix string `json:"ip_prefix"`
-	Region   string `json:"region"`
-	Service  string `json:"service"`
-}
-
-// AWSIPRange is read from https://ip-ranges.amazonaws.com/ip-ranges.json
-type AWSIPRange struct {
-	CreateDate string `json:"createDate"`
-	SyncToken  string `json:"syncToken"`
-	Prefixes   []Prefix
-}
 
 const (
-	rawURL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
+	// Exit codes
+	codeFound = iota
+	codeNotFound
+	codeError
+
+	// Environment variable configuration
+	envCachefilePath = "AWS_IP_CHECK_CACHE_FILE_PATH"
+	envCacheTTL      = "AWS_IP_CHECK_CACHE_TTL"
+	envExtraInfo     = "AWS_IP_CHECK_EXTRA_INFO"
+	envExtraFormat   = "AWS_IP_CHECK_EXTRA_FORMAT"
 )
 
-func downloadFile(path string) (err error) {
-	out, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	resp, err := http.Get(rawURL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return errors.New("Wrong URL provided or bad response from server")
-	}
-
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
-	return nil
+type config struct {
+	ip            string
+	cacheFilePath string
+	cacheTTL      int64
+	extraInfo     bool
+	extraFormat   string
 }
 
-func validIP(ip string) bool {
-	ipv4 := false
-	ipv6 := false
+func mustReadCfg() *config {
+	var cfg config
 
-	testIPv4 := net.ParseIP(ip)
-	if testIPv4.To4() != nil {
-		ipv4 = true
+	flag.Usage = usage
+	cacheFilePath := flag.String("cache", "", "File path where to store cache.")
+	cacheTTL := flag.Int64("ttl", 0, "AWS soruce IP data cache TTL in seconds. 0 means infinite.")
+	extraInfo := flag.Bool("extra", false, "Provide extra info of the IP if belongs to AWS.")
+	extraFormat := flag.String("format", "text", "Output format for the IP extra info.")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		return &config{}
 	}
 
-	testIPv6 := net.ParseIP(ip)
-	if testIPv6.To16() != nil {
-		ipv6 = true
-	}
-	return ipv4 || ipv6
-}
+	// Set configuration from flags and defaults.
+	cfg.ip = flag.Arg(0)
+	cfg.cacheFilePath = *cacheFilePath
+	cfg.cacheTTL = *cacheTTL
+	cfg.extraInfo = *extraInfo
+	cfg.extraFormat = *extraFormat
 
-func usage() {
-	fmt.Fprintln(os.Stderr, "usage: aws-ip-check [flags]")
-	flag.PrintDefaults()
+	// If any configuration is defined by env var, overwrite.
+	if os.Getenv(envCachefilePath) != "" {
+		cfg.cacheFilePath = os.Getenv(envCachefilePath)
+	}
+	if os.Getenv(envCacheTTL) != "" {
+		ttl, err := strconv.ParseInt(os.Getenv(envCacheTTL), 10, 64)
+		// If parse rise an error, leave default.
+		if err == nil {
+			cfg.cacheTTL = ttl
+		}
+	}
+	if os.Getenv(envExtraInfo) != "" {
+		extraInfo, err := strconv.ParseBool(os.Getenv(envExtraInfo))
+		// If parse rise an error, leave default.
+		if err == nil {
+			cfg.extraInfo = extraInfo
+		}
+	}
+	if os.Getenv(envExtraFormat) != "" {
+		cfg.extraFormat = os.Getenv(envExtraFormat)
+	}
+
+	return &cfg
 }
 
 func main() {
-	os.Exit(realMain())
+	os.Exit(realMain(mustReadCfg()))
 }
 
-func realMain() int {
-	flag.Usage = usage
-	ipAddress := flag.String("ip", "", "IP address to check if belongs to AWS")
-	awsIPRangeFilePath := flag.String("path", "/tmp/aws-ip-ranges.json", "File path to store AWS ip-ranges.json")
-	extraInfo := flag.Bool("extra", false, "Print extra info of the IP if pertains to AWS")
-	flag.Parse()
-	if *ipAddress == "" {
+func usage() {
+	fmt.Println("usage: aws-ip-check [flags] ip")
+	flag.PrintDefaults()
+}
+
+func printExtra(format string, ip string, awsRange *check.Range) {
+	switch format {
+	default:
+		fmt.Printf("ip range region service\n")
+		fmt.Printf("%s %s %s %s\n", ip, awsRange.IPPrefix, awsRange.Region, awsRange.Service)
+	}
+}
+
+func realMain(cfg *config) int {
+	if cfg.ip == "" {
 		usage()
-		return 2
+		fmt.Println("ip argument is required")
+		return codeError
 	}
 
-	if valid := validIP(*ipAddress); valid == false {
-		fmt.Printf("invalid IP address provided: %s\n", *ipAddress)
-		return 2
-	}
-
-	if _, err := os.Stat(*awsIPRangeFilePath); os.IsNotExist(err) {
-		downloadFile(*awsIPRangeFilePath)
-	}
-
-	file, err := ioutil.ReadFile(*awsIPRangeFilePath)
+	c, err := check.NewClient(&check.Options{
+		CacheTimeout:  cfg.cacheTTL,
+		CacheFilePath: cfg.cacheFilePath,
+	})
 	if err != nil {
-		fmt.Printf("file error: %v\n", err)
-		return 2
+		fmt.Printf("error creating client: %s", err)
+		return codeError
 	}
 
-	var ipRange AWSIPRange
-	json.Unmarshal(file, &ipRange)
-
-	contains := false
-	var extra string
-
-	for _, r := range ipRange.Prefixes {
-		_, cidrnet, err := net.ParseCIDR(r.IPPrefix)
-		if err != nil {
-			fmt.Printf("error parsing CIDR %s: %v\n", r.IPPrefix, err)
-			return 2
-		}
-		ip := net.ParseIP(*ipAddress)
-		if cidrnet.Contains(ip) {
-			contains = true
-
-			if *extraInfo {
-				e, err := json.Marshal(r)
-				if err != nil {
-					fmt.Printf("error encoding range %+v: %v\n", r, err)
-					return 2
-				}
-				extra += fmt.Sprintf(",%s", e)
-			} else {
-				break
-			}
-		}
+	found, awsRange, err := c.Check(cfg.ip)
+	if err != nil {
+		fmt.Printf("ip [%s] check caused error: %s", cfg.ip, err)
+		return codeError
+	}
+	if !found {
+		return codeNotFound
+	}
+	if cfg.extraInfo {
+		printExtra(cfg.extraFormat, cfg.ip, &awsRange)
 	}
 
-	if contains {
-		fmt.Printf("IP %s found in AWS ip range%s\n", *ipAddress, extra)
-		return 0
-	}
-
-	fmt.Printf("IP %s not found in AWS ip ranges\n", *ipAddress)
-	return 1
+	return codeFound
 }
