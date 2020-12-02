@@ -2,6 +2,7 @@
 [![codecov](https://codecov.io/gh/danfaizer/aws-ip-check/branch/master/graph/badge.svg)](https://codecov.io/gh/danfaizer/aws-ip-check)
 [![Go Report Card](https://goreportcard.com/badge/github.com/danfaizer/aws-ip-check)](https://goreportcard.com/report/github.com/danfaizer/aws-ip-check)
 [![GoDoc](https://godoc.org/github.com/danfaizer/aws-ip-check?status.svg)](https://godoc.org/github.com/danfaizer/aws-ip-check)
+[![Github Action](https://github.com/danfaizer/aws-ip-check/workflows/.github/workflows/test.yml/badge.svg)](https://github.com/danfaizer/aws-ip-check/actions?query=workflow%3A%22run+tests%22)
 
 # aws-ip-check
 `aws-ip-check` provides a go library and a command line tool to check if an IP address belongs to Amazon Web Service (AWS) infrastructure or not.
