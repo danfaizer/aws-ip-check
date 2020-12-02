@@ -32,7 +32,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Run tests
       run: |
-        go test -v -race -covermode=count ./...
+        go test -v -race -covermode=atomic ./...
 
   coverage:
     runs-on: ubuntu-latest

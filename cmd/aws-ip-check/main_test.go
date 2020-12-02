@@ -159,7 +159,7 @@ func TestMainRealMain(t *testing.T) {
 		},
 		{
 			name:           "NotAWSIPv6Provided",
-			cfg:            &config{ip: correctIPv4},
+			cfg:            &config{ip: correctIPv6},
 			expectedStatus: 1,
 		},
 		{

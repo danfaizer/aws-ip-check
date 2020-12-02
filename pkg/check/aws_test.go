@@ -170,6 +170,8 @@ func TestCheckCacheTTL(t *testing.T) {
 				errorDuringTest = err
 			}
 			assert.Equal(t, tt.expired, last != c.last)
+			assert.Equal(t, tt.found, found)
+			assert.Equal(t, tt.wantError, errorDuringTest != nil)
 		})
 	}
 }
