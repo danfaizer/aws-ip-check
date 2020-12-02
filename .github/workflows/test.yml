@@ -49,7 +49,7 @@ jobs:
         go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
     - name: Push coverage to codecov
       uses: codecov/codecov-action@v1
-        with:
-          file: ./coverage.txt
-          fail_ci_if_error: true
-          verbose: true
+      with:
+        file: ./coverage.txt
+        fail_ci_if_error: true
+        verbose: true
